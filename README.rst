@@ -1,4 +1,4 @@
-chimera_template plugin
+chimera-template plugin
 =======================
 
 This is a template plugin for the chimera observatory control system
@@ -29,7 +29,7 @@ or
 
 ::
 
-    pip install -U git+https://github.com/astroufsc/chimera_template.git
+    pip install -U git+https://github.com/astroufsc/chimera-template.git
 
 
 Configuration Example
@@ -60,4 +60,4 @@ For more information, contact us on chimera's discussion list:
 https://groups.google.com/forum/#!forum/chimera-discuss
 
 Bug reports and patches are welcome and can be sent over our GitHub page:
-https://github.com/astroufsc/chimera_template/
+https://github.com/astroufsc/chimera-template/
