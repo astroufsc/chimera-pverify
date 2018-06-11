@@ -1,20 +1,21 @@
 from __future__ import division
-from math import fabs
-import os
+
 import ntpath
+import os
 import time
+from math import fabs
 
 from chimera.controllers.imageserver.util import getImageServer
-from chimera.util.catalogs.landolt import Landolt
 from chimera.core.chimeraobject import ChimeraObject
 from chimera.core.exceptions import (CantPointScopeException, CantSetScopeException, printException, ChimeraException)
 from chimera.interfaces.camera import Shutter
-from chimera.interfaces.telescope import SlewRate
 from chimera.interfaces.pointverify import PointVerify as IPointVerify
+from chimera.interfaces.telescope import SlewRate
+from chimera.util.astrometrynet import AstrometryNet, NoSolutionAstrometryNetException
+from chimera.util.catalogs.landolt import Landolt
+from chimera.util.coord import Coord
 from chimera.util.image import ImageUtil, Image
 from chimera.util.position import Position
-from chimera.util.coord import Coord
-from chimera.util.astrometrynet import AstrometryNet, NoSolutionAstrometryNetException
 
 
 class PointVerify(ChimeraObject, IPointVerify):
@@ -43,7 +44,7 @@ class PointVerify(ChimeraObject, IPointVerify):
     def getFilterWheel(self):
         return self.getManager().getProxy(self["filterwheel"])
 
-    def _takeImage(self):
+    def _takeImage(self, imageRequest):
 
         cam = self.getCam()
         if cam["telescope_focal_length"] is None:
@@ -51,8 +52,11 @@ class PointVerify(ChimeraObject, IPointVerify):
         if self["filterwheel"] is not None:
             fw = self.getFilterWheel()
             fw.setFilter(self["filter"])
-        frames = cam.expose(exptime=self["exptime"], frames=1, shutter=Shutter.OPEN,
-                            filename=os.path.basename(ImageUtil.makeFilename("pointverify-$DATE")))
+
+        request = dict(exptime=self["exptime"], frames=1, shutter=Shutter.OPEN,
+                       filename=os.path.basename(ImageUtil.makeFilename("pointverify-$DATE")))
+        request.update(imageRequest)
+        frames = cam.expose(**request)
 
         if frames:
             image = frames[0]
@@ -75,7 +79,7 @@ class PointVerify(ChimeraObject, IPointVerify):
         else:
             raise Exception("Could not take an image")
 
-    def pointVerify(self):
+    def pointVerify(self, imageRequest={}):
         """
         Checks telescope pointing.
         If abs ( telescope coordinates - image coordinates ) > tolerance
@@ -91,7 +95,7 @@ class PointVerify(ChimeraObject, IPointVerify):
         # take an image and read its coordinates off the header
 
         try:
-            image_path, image = self._takeImage()
+            image_path, image = self._takeImage(imageRequest)
             self.log.debug("Taking image: image name %s" % image_path)
         except:
             self.log.error("Can't take image")
@@ -132,7 +136,7 @@ class PointVerify(ChimeraObject, IPointVerify):
             #    self.checkedpointing = False
             #    raise CanSetScopeButNotThisField("Able to set scope, but unable to verify this field %s" %(currentImageCenter))
         wcs_image = Image.fromFile(wcs_name)
-        ra_wcs_center, dec_wcs_center = wcs_image.worldAt((image["NAXIS1"]/2., image["NAXIS2"]/2.))
+        ra_wcs_center, dec_wcs_center = wcs_image.worldAt((image["NAXIS1"] / 2., image["NAXIS2"] / 2.))
         currentWCS = Position.fromRaDec(Coord.fromD(ra_wcs_center), Coord.fromD(dec_wcs_center))
 
         # save the position of first trial:
@@ -166,7 +170,7 @@ class PointVerify(ChimeraObject, IPointVerify):
 
         # *** need to do real logging here
         logstr = "%s ra_tel = %f dec_tel = %f ra_img = %f dec_img = %f delta_ra = %f delta_dec = %f" % (
-        image["DATE-OBS"], ra_img_center, dec_img_center, ra_wcs_center, dec_wcs_center, delta_ra, delta_dec)
+            image["DATE-OBS"], ra_img_center, dec_img_center, ra_wcs_center, dec_wcs_center, delta_ra, delta_dec)
         self.log.debug(logstr)
 
         if (fabs(delta_ra) > self["ra_tolerance"]) or (fabs(delta_dec) > self["dec_tolerance"]):

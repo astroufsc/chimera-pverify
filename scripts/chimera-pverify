@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/python
 # -*- coding: iso-8859-1 -*-
 
 # chimera - observatory automation system
@@ -44,6 +44,7 @@ class ChimeraPointVerify(ChimeraCLI):
 
         self.addParameters(dict(name="nfields", long="nfields", type="int", helpGroup="PVERIFY",
                                 help="Number of fields to verify", default=1))
+        self.addParameters(dict(name="binning", help="Use binning to expose", helpGroup="PVERIFY"))
 
     # ok, looks like action establishes that the following method is some
     # action performed by this script
@@ -93,9 +94,21 @@ class ChimeraPointVerify(ChimeraCLI):
         tries to find image RA, DEC,
         and tries to recenter the telescope
         """
+
+        # Check binning
+
+        if options.binning:
+            binnings = self.pverify.getCam().getBinnings()
+            if options.binning not in binnings.keys():
+                self.exit("Invalid binning mode. See chimera-cam --info for available binning modes")
+            imageRequest = dict(binning=options.binning)
+        else:
+            imageRequest = dict()
+
         self.out("Centering scope on current field")
         try:
-            self.pverify.pointVerify()
+            self.pverify.ntrials = 0
+            self.pverify.pointVerify(imageRequest)
         except CanSetScopeButNotThisField:
             self.out("The scope has been set on a standard field but it is impossible to set on this - either spotty clouds or too faint stars")
         self.out("OK")
